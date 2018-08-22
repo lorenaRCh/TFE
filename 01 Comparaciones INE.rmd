@@ -1,0 +1,625 @@
+---
+title: "Datos Comparativos INE"
+author: "Lorena Rodriguez Chamorro"
+date: "25 de junio de 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+#install.packages("tidyverse")
+#install.packages("knitr")
+#install.packages("dplyr")
+#install.packages("quantreg")
+library("tidyverse")
+library("dplyr")
+library("ggplot2")
+library("readxl")
+library("quantreg")
+```
+
+```{r, include=FALSE}
+#Cargo la tabla 
+load("../dat/EES_2014.rds")
+
+#Realizo la transformacion de las vbles
+EES_2014$NUTS1<-ifelse(EES_2014$NUTS1==1, "NOROESTE", ifelse(EES_2014$NUTS1==2, "NORESTE", ifelse(EES_2014$NUTS1==3, "COM. MADRID"
+                , ifelse(EES_2014$NUTS1==4, "CENTRO", ifelse(EES_2014$NUTS1==5, "ESTE", ifelse(EES_2014$NUTS1==6, "SUR",
+                ifelse(EES_2014$NUTS1==7, "CANARIAS","")))))))
+
+EES_2014$ESTRATO2<-ifelse(EES_2014$ESTRATO2==0, "1. INCLUYE TODOS LOS ESTRATOS", ifelse(EES_2014$ESTRATO2==1, "2.DE 1  A 49 TRABAJADORES", 
+                  ifelse(EES_2014$ESTRATO2==2, "3.DE 50 A 199 TRABAJADORES", ifelse(EES_2014$ESTRATO2==3, "4.200 Y MAS TRABAJADORES", 
+                 ifelse(EES_2014$ESTRATO2==4, "5.INCLUYE ESTRATO 2 Y 3","")))))
+
+EES_2014$CONTROL<-ifelse(EES_2014$CONTROL==1,"PUBLICO", ifelse(EES_2014$CONTROL==2, "PRIVADO",""))
+
+EES_2014$MERCADO<-ifelse(EES_2014$MERCADO==1,"LOCAL O REGIONAL", ifelse(EES_2014$MERCADO==2, "NACIONAL"
+                                                                        , ifelse(EES_2014$MERCADO==3, "UNION EUROPEA", ifelse(EES_2014$MERCADO==4, "MUNDIAL",""))))
+
+EES_2014$REGULACION<-ifelse(EES_2014$REGULACION==1,"ESTATAL SECTORIAL", ifelse(EES_2014$REGULACION==2, "SECTORIAL DE AMBITO INFERIOR"
+                                                                              , ifelse(EES_2014$REGULACION==3, "DE EMPRESA O GRUPO DE EMPRESAS", ifelse(EES_2014$REGULACION==4, "DE CENTRO DE TRABAJO"
+                                                                           , ifelse(EES_2014$REGULACION==5, "OTRA FORMA DE REGULACIÓN","")))))
+
+
+EES_2014$SEXO<-ifelse(EES_2014$SEXO==1,"HOMBRE", ifelse(EES_2014$SEXO==6, "MUJER",""))
+
+EES_2014$TIPOPAIS<-ifelse(EES_2014$TIPOPAIS==1,"ESPAÑA", ifelse(EES_2014$TIPOPAIS==2, "RESTO MUNDO",""))
+
+EES_2014$TIPOJOR<-ifelse(EES_2014$TIPOJOR==1,"TIEMPO COMPLETO", ifelse(EES_2014$TIPOJOR==2, "TIEMPO PARCIAL",""))
+
+EES_2014$TIPOCON<-ifelse(EES_2014$TIPOCON==1,"DURACION INDEFINIDA", ifelse(EES_2014$TIPOCON==2, "DURACION DETERMINADA",""))
+
+EES_2014$SIESPM1<-ifelse(EES_2014$SIESPM1==1,"SI", ifelse(EES_2014$SIESPM1==6, "NO",""))
+
+EES_2014$SIESPM2<-ifelse(EES_2014$SIESPM2==1,"SI", ifelse(EES_2014$SIESPM2==6, "NO",""))
+
+EES_2014$SIESPA1<-ifelse(EES_2014$SIESPA1==1,"SI", ifelse(EES_2014$SIESPA1==6, "NO",""))
+
+EES_2014$SIESPA2<-ifelse(EES_2014$SIESPA2==1,"SI", ifelse(EES_2014$SIESPA2==6, "NO",""))
+
+EES_2014$SIESPA3<-ifelse(EES_2014$SIESPA3==1,"SI", ifelse(EES_2014$SIESPA3==6, "NO",""))
+
+EES_2014$SIESPA4<-ifelse(EES_2014$SIESPA4==1,"SI", ifelse(EES_2014$SIESPA4==6, "NO",""))
+
+EES_2014$ANOS2<-ifelse(EES_2014$ANOS2=="01","1.MENOS 19 AÑOS", ifelse(EES_2014$ANOS2=="02", "2.DE 20 A 29",
+                ifelse(EES_2014$ANOS2=="03","3.DE 30 A 39", ifelse(EES_2014$ANOS2=="04", "4.DE 40 A 49",
+                ifelse(EES_2014$ANOS2=="05","5.DE 50 A 59", ifelse(EES_2014$ANOS2=="06", "6.MAS DE 59",""))))))
+
+EES_2014$RESPONSA<-ifelse(EES_2014$RESPONSA==1,"SI", ifelse(EES_2014$RESPONSA==0, "NO",""))
+
+EES_2014$ESTU<-ifelse(EES_2014$ESTU==1, "1.Menos que primaria", 
+               ifelse(EES_2014$ESTU==2, "2.Educacion primaria", 
+               ifelse(EES_2014$ESTU==3, "3.Primera etapa de educacion secundaria",
+               ifelse(EES_2014$ESTU==4, "4.Segunda etapa de educacion secundaria", 
+               ifelse(EES_2014$ESTU==5, "5.Enseñanzas de formación profesional de grado superior y similares", 
+               ifelse(EES_2014$ESTU==6, "6.Diplomados universitarios y similares",
+               ifelse(EES_2014$ESTU==7, "7.Licenciados y similares, y doctores universitarios","")))))))
+
+
+# DÃ???as aÃ±o
+#Multiplica los meses trabajados por los días del mes más la duración de la relación laboral en el año en días
+EES_2014$DIASRELABA <- EES_2014$DRELABAM * 30.42 + EES_2014$DRELABAD
+EES_2014$DIASRELABA[EES_2014$DIASRELABA > 365] <- 365
+##Calcula dias trabajados al año con los dias de relación laboral restándole los días en situación especial 2 y 4
+EES_2014$DIASANO <- EES_2014$DIASRELABA - EES_2014$DSIESPA2 - EES_2014$DSIESPA4
+
+
+# Salario bruto anual 
+# El salario bruto + la valoración en especie * la proporción de días trabajado
+EES_2014$SALANUAL = (365/EES_2014$DIASANO)*(EES_2014$SALBRUTO + EES_2014$VESP)
+
+
+#Cargo las dos tablas maestras de las variables CNAE y ocupacion
+TCNO<-read_xlsx("../dat/TCNO.xlsx")
+TCNACE<-read_xlsx("../dat/TCNACE.xlsx")
+
+#Uno los descriptivos a la tabla original
+EES_2014<-merge(EES_2014, TCNO, by="CNO1") 
+EES_2014<-merge(EES_2014, TCNACE, by="CNACE") 
+```
+
+## ANÁLISIS DESCRIPTIVO
+
+El salario bruto medio anual en 2014 estaba situado según la nota de prensa del INE en 22.858,17 euros:
+
+```{r, echo=FALSE}
+salario.medio.anual <-   sum(EES_2014$SALANUAL * EES_2014$FACTOTAL) / sum(EES_2014$FACTOTAL)
+salario.medio.anual
+```
+
+Si analizamos el salario medio anual por género tenemos que el salario anual de las mujeres se sitúa por encima de los 19.000 euros (19.744,82 según el INE) mientras que el de los hombres supera los 25.000 (25.727,24 fuente INE): 
+
+```{r, echo=FALSE}
+###SALARIO MEDIO POR SEXO
+EES_2014 %>%
+  select(SEXO, SALANUAL, FACTOTAL) %>%
+  group_by(SEXO) %>%
+  summarize(promedio= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+```
+
+```{r, echo=FALSE}
+###SALARIO MEDIO POR SEXO
+EES_2014 %>%
+  select(SEXO, SALANUAL, FACTOTAL) %>%
+  group_by(SEXO) %>%
+  summarize(promedio= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL))) %>%
+  ggplot(aes(x=SEXO, y=promedio, fill=promedio)) + geom_col() 
+
+```
+
+Si estudiamos el salario el salario por el tipo de jornada (tiempo completo o tiempo parcial), tenemos que el salario medio a tiempo parcial es bastante inferior. Los datos publicados por el INE fueron 26.965,35 euros para aquellos trabajadores a tiempo completo frente a 9.794,79 euros para tiempo parcial.
+
+```{r, echo=FALSE}
+###SALARIO MEDIO POR TIPO JORNADA
+EES_2014 %>%
+  select(TIPOJOR, SALANUAL, FACTOTAL) %>%
+  group_by(TIPOJOR) %>%
+  summarize(promedio= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+```
+
+A continuación analizamos el salario por zona geográfica, dónde vemos que la Comunidad de Madrid es la que concentra mayor salario medio mientras que por el contrario los trabajadores de Canarias son los que tienen menor salario medio. Los resultados publicados por el INE están a nivel comunidad autónoma no zona geográfica por lo que no pueden ser comparados.
+
+```{r, echo=FALSE}
+EES_2014 %>%
+  select(NUTS1, SALANUAL, FACTOTAL) %>%
+  group_by(NUTS1) %>%
+  summarize(promedio= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))%>%
+  ggplot(aes(x=reorder(NUTS1,-promedio), y=promedio, fill=promedio)) + geom_col() + scale_fill_gradient(low = "red",  high = "yellow") + labs(title ="Salario Medio Anual por Zona", x = "Zona", y = "Salario Medio")
+```
+
+La actividad económica cuyos trabajadores tienen mejor salario medio es Suministro de energía eléctrica, gas, vapor y aire acondicionado (D0 51.034,67 euros según el INE), seguido de Actividades financieras y de seguros (k0).
+
+```{r, echo=FALSE}
+###SALARIO MEDIO POR ACTIVIDAD ECONÓMICA
+EES_2014 %>%
+  select(DES_CNACE, SALANUAL, FACTOTAL) %>%
+  group_by(DES_CNACE) %>%
+  summarize(promedio= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL))) %>%
+  arrange(desc(promedio), DES_CNACE) %>%
+  top_n(2, promedio)
+
+```
+
+Por otro lado, la actividad económica con menor salario medio es Hostelería (I0 13.636,04 euros por el INE), seguido de Actividades administrativas y servicios auxiliares (N0).
+
+```{r, echo=FALSE}
+###SALARIO MEDIO POR ACTIVIDAD ECONÓMICA
+EES_2014 %>%
+  select(DES_CNACE, SALANUAL, FACTOTAL) %>%
+  group_by(DES_CNACE) %>%
+  summarize(promedio= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL))) %>%
+  arrange(desc(promedio), DES_CNACE) %>%
+  top_n(-2, promedio)
+```
+
+El salario medio por tipo de contrato es superior en el caso de duración indefinida, dónde el dato publicado por el INE se sitúa en 24.746,47, mientras que los trabajadores con contrato de duración determinada tienen un salario medio según el INE de 15680,55 euros. 
+
+```{r, echo=FALSE}
+###SALARIO MEDIO POR TIPO CONTRATO
+EES_2014 %>%
+  select(TIPOCON, SALANUAL, FACTOTAL) %>%
+  group_by(TIPOCON) %>%
+  summarize(promedio= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+```
+
+Los directores y gerentes (52.512,99) junto con otros técnicos y profesionales científicos e intelectuales son los que mayor salario medio tienen. Además el dato del salario medio de directores y gerentes es el que mayor desviación presenta con los datos publicados por el INE.
+
+```{r, echo=FALSE}
+###SALARIO MEDIO POR OCUPACION
+EES_2014 %>%
+  select(DES_TCNO, SALANUAL, FACTOTAL) %>%
+  group_by(DES_TCNO) %>%
+  summarize(promedio= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))%>%
+  arrange(desc(promedio), DES_TCNO) %>%
+  top_n(2, promedio)
+```
+Por el contrario,trabajadores de los servicios de restauración y comercio y los trabajadores no cualificados en servicios (12.199,99 euros según INE) son los que menor salario medio tienen.
+```{r, echo=FALSE}
+###SALARIO MEDIO POR OCUPACION
+EES_2014 %>%
+  select(DES_TCNO, SALANUAL, FACTOTAL) %>%
+  group_by(DES_TCNO) %>%
+  summarize(promedio= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))%>%
+  arrange(desc(promedio), DES_TCNO) %>%
+  top_n(-2, promedio)
+```
+
+Además sabíamos que el salario medio se situaba en un 
+```{r, echo=FALSE}
+###SALARIO MEDIO
+weighted.mean(EES_2014$SALANUAL,EES_2014$FACTOTAL)
+```
+Mientras que el salario mediano está en:
+
+```{r, echo=FALSE}
+###SALARIO MEDIANO
+rq(EES_2014$SALANUAL ~ 1, tau = 0.5, weights=EES_2014$FACTOTAL)$coef
+```
+
+Si analizamos que porcentaje del salario promedio de las mujeres representa sobre el salario medio de los hombres tenemos que :
+
+```{r, echo=FALSE}
+###% SALARIO MUJERES VS SALARIO HOMBRES
+salario.medio.anual.hombres <- EES_2014 %>%
+  select(SEXO, SALANUAL, FACTOTAL) %>%
+  filter(SEXO=="HOMBRE") %>%
+  summarize(porcentaje= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+salario.medio.anual.mujeres <- EES_2014 %>%
+  select(SEXO, SALANUAL, FACTOTAL) %>%
+  filter(SEXO=="MUJER") %>%
+  summarize(porcentaje= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+(salario.medio.anual.mujeres/salario.medio.anual.hombres)*100
+```
+
+Para calcular la brecha salarial entre sexos, se tiene que calcular la ganancia por hora, para calcular la diferencia de este cómputo entre hombres y mujeres como porcentaje de la ganancia por hora de los hombres.
+El resultado de la brecha salarial que proporciona el INE para 2014 se sitúa en un 14%, realizando estos cálculos el resultado que obtengo es:
+
+```{r, echo=FALSE}
+#Cálculo salario x hora
+EES_2014$SALHORA<-EES_2014$SALANUAL/EES_2014$JAP
+
+#Salario meedio por hora por sexo
+SALHORA <- EES_2014 %>%
+  select(SEXO, SALHORA, FACTOTAL) %>%
+  group_by(SEXO) %>%
+  summarize(promedio= (sum(SALHORA * FACTOTAL) / sum(FACTOTAL)))
+
+BRECHA <- (SALHORA[1,2]-SALHORA[2,2])/SALHORA[1,2]*100
+BRECHA
+```
+
+A continuación vamos a analizar el salario medio por género, el porcentaje que representa el salario de las mujeres sobre el de los hombres y la diferencia porcentual por las distintas variables, comenzamos por la zona geográfica.
+```{r, echo=FALSE}
+###SALARIO MEDIO POR ZONAS
+GENERO_ZONA <- EES_2014 %>%
+  select(SALANUAL, FACTOTAL, NUTS1) %>%
+  group_by(NUTS1) %>%
+  summarize(PROMEDIOTOT= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_ZONA_H <- EES_2014 %>%
+  select(SALANUAL,SEXO, FACTOTAL, NUTS1) %>%
+  filter(SEXO=="HOMBRE") %>%
+  group_by(NUTS1) %>%
+  summarize(PROMEDIO_H= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_ZONA_M <- EES_2014 %>%
+  select(SALANUAL,SEXO, FACTOTAL, NUTS1) %>%
+  filter(SEXO=="MUJER") %>%
+  group_by(NUTS1) %>%
+  summarize(PROMEDIO_M= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+
+GENERO_ZONA <- cbind(GENERO_ZONA, GENERO_ZONA_H$PROMEDIO_H, GENERO_ZONA_M$PROMEDIO_M)
+
+names(GENERO_ZONA) <- list("NUTS1","PROMEDIO_TOT","PROMEDIO_H","PROMEDIO_M")
+
+
+GENERO_ZONA$PORCENTAJE <- (GENERO_ZONA$PROMEDIO_M/GENERO_ZONA$PROMEDIO_H)*100
+GENERO_ZONA$DIFERENCIA <- ((GENERO_ZONA$PROMEDIO_H-GENERO_ZONA$PROMEDIO_M)/GENERO_ZONA$PROMEDIO_H)*100
+
+GENERO_ZONA %>%
+  arrange(desc(DIFERENCIA), NUTS1) 
+```
+Dónde podemos observar que es la zona SUR dónde existe mayor diferencia entre el salario medio anual de hombres y mujeres, por el contrario CANARIAS es la zona con menor diferencia, representando el salario medio de las mujeres más del 88% de el de los hombres.
+
+Analizamos las diferencias por Actividad económica:
+```{r, echo=FALSE}
+###SALARIO MEDIO POR ACTIVIDAD ECONOMICA Y GENERO
+GENERO_ACTIVIDAD <- EES_2014 %>%
+  select(SALANUAL, FACTOTAL, CNACE) %>%
+  group_by(CNACE) %>%
+  summarize(PROMEDIOTOT= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_ACTIVIDAD_H <- EES_2014 %>%
+  select(SALANUAL,SEXO, FACTOTAL, CNACE) %>%
+  filter(SEXO=="HOMBRE") %>%
+  group_by(CNACE) %>%
+  summarize(PROMEDIO_H= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_ACTIVIDAD_M <- EES_2014 %>%
+  select(SALANUAL,SEXO, FACTOTAL, DES_CNACE) %>%
+  filter(SEXO=="MUJER") %>%
+  group_by(DES_CNACE) %>%
+  summarize(PROMEDIO_M= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+
+GENERO_ACTIVIDAD <- cbind(GENERO_ACTIVIDAD, GENERO_ACTIVIDAD_H$PROMEDIO_H, GENERO_ACTIVIDAD_M$PROMEDIO_M)
+
+names(GENERO_ACTIVIDAD) <- list("DES_CNACE","PROMEDIO_TOT","PROMEDIO_H","PROMEDIO_M")
+
+
+GENERO_ACTIVIDAD$PORCENTAJE <- (GENERO_ACTIVIDAD$PROMEDIO_M/GENERO_ACTIVIDAD$PROMEDIO_H)*100
+GENERO_ACTIVIDAD$DIFERENCIA <- ((GENERO_ACTIVIDAD$PROMEDIO_H-GENERO_ACTIVIDAD$PROMEDIO_M)/GENERO_ACTIVIDAD$PROMEDIO_H)*100
+
+GENERO_ACTIVIDAD %>%
+  arrange(desc(DIFERENCIA), DES_CNACE)  %>%
+  top_n(2, DIFERENCIA)
+  
+GENERO_ACTIVIDAD %>%
+  arrange(desc(DIFERENCIA), DES_CNACE)  %>%
+  top_n(-2, DIFERENCIA)
+```
+
+Dónde encontramos que existe mayor diferencia positiva para los hombres en actividades como Industrias extractivas (B0), o Suministro de energía eléctrica, gas, vapor y aire acondicionado (D0). Sin embargo en actividades como Comercio al por mayor y al por menor; reparación de vehículos de motor y motocicletas: comercio al por menor(G2) o Hostelería: servicios de alojamiento, servicios de comidas y bebidas existe una diferencia positiva hacia las mujeres.
+
+Continuamos analizando las posibles diferencias entre género por la variable ocupación, dónde podemos observar que (QO) Ocupaciones Militares es la ocupación con mayor diferencia salarial, (O0) seguida de Trabajadores no cualificados en servicios, por el contrario, (J0) Trabajadores cualificados en el sector agrícola, ganadero, forestal y pesquero es la ocupación que presenta menor diferencia.
+
+```{r, echo=FALSE}
+###SALARIO MEDIO POR OCUPACION Y GENERO
+GENERO_OCUPACION <- EES_2014 %>%
+  select(CNO1, SEXO, SALANUAL, FACTOTAL) %>%
+  group_by(CNO1) %>%
+  summarize(PROMEDIOTOT= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_OCUPACION_H <- EES_2014 %>%
+  select(CNO1, SEXO, FACTOTAL, SALANUAL) %>%
+  filter(SEXO=="HOMBRE") %>%
+  group_by(CNO1) %>%
+  summarize(PROMEDIO_H= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_OCUPACION_M <- EES_2014 %>%
+  select(CNO1, SEXO, FACTOTAL, CNACE, SALANUAL) %>%
+  filter(SEXO=="MUJER") %>%
+  group_by(CNO1) %>%
+  summarize(PROMEDIO_M= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+
+GENERO_OCUPACION <- cbind(GENERO_OCUPACION, GENERO_OCUPACION_H$PROMEDIO_H, GENERO_OCUPACION_M$PROMEDIO_M)
+
+names(GENERO_OCUPACION) <- list("CNO1","PROMEDIO_TOT","PROMEDIO_H","PROMEDIO_M")
+
+
+GENERO_OCUPACION$PORCENTAJE <- (GENERO_OCUPACION$PROMEDIO_M/GENERO_OCUPACION$PROMEDIO_H)*100
+GENERO_OCUPACION$DIFERENCIA <- ((GENERO_OCUPACION$PROMEDIO_H-GENERO_OCUPACION$PROMEDIO_M)/GENERO_OCUPACION$PROMEDIO_H)*100
+
+GENERO_OCUPACION %>%
+  arrange(desc(DIFERENCIA), CNO1)  #%>%
+  #top_n(2, DIFERENCIA)
+```
+
+A continuación estudiamos esta diferencia por tipo de jornada y tipo de contrato:
+
+```{r, echo=FALSE}
+###SALARIO MEDIO POR TIPO DE JORNADA
+GENERO_TIPOJOR <- EES_2014 %>%
+  select(TIPOJOR,SEXO, SALANUAL, FACTOTAL) %>%
+  group_by(TIPOJOR) %>%
+  summarize(PROMEDIOTOT= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_TIPOJOR_H <- EES_2014 %>%
+  select(TIPOJOR,SEXO, FACTOTAL, SALANUAL) %>%
+  filter(SEXO=="HOMBRE") %>%
+  group_by(TIPOJOR) %>%
+  summarize(PROMEDIO_H= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_TIPOJOR_M <- EES_2014 %>%
+  select(TIPOJOR,SEXO, FACTOTAL, CNACE, SALANUAL) %>%
+  filter(SEXO=="MUJER") %>%
+  group_by(TIPOJOR) %>%
+  summarize(PROMEDIO_M= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+
+GENERO_TIPOJOR <- cbind(GENERO_TIPOJOR, GENERO_TIPOJOR_H$PROMEDIO_H, GENERO_TIPOJOR_M$PROMEDIO_M)
+
+names(GENERO_TIPOJOR) <- list("TIPOJOR","PROMEDIO_TOT","PROMEDIO_H","PROMEDIO_M")
+
+
+GENERO_TIPOJOR$PORCENTAJE <- (GENERO_TIPOJOR$PROMEDIO_M/GENERO_TIPOJOR$PROMEDIO_H)*100
+GENERO_TIPOJOR$DIFERENCIA <- ((GENERO_TIPOJOR$PROMEDIO_H-GENERO_TIPOJOR$PROMEDIO_M)/GENERO_TIPOJOR$PROMEDIO_H)*100
+
+GENERO_TIPOJOR %>%
+  arrange(desc(DIFERENCIA), TIPOJOR)  #%>%
+
+###SALARIO MEDIO POR TIPO DE CONTRATO
+GENERO_TIPOCON <- EES_2014 %>%
+  select(TIPOCON,SEXO, SALANUAL, FACTOTAL) %>%
+  group_by(TIPOCON) %>%
+  summarize(PROMEDIOTOT= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_TIPOCON_H <- EES_2014 %>%
+  select(TIPOCON,SEXO, FACTOTAL, SALANUAL) %>%
+  filter(SEXO=="HOMBRE") %>%
+  group_by(TIPOCON) %>%
+  summarize(PROMEDIO_H= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_TIPOCON_M <- EES_2014 %>%
+  select(TIPOCON,SEXO, FACTOTAL, CNACE, SALANUAL) %>%
+  filter(SEXO=="MUJER") %>%
+  group_by(TIPOCON) %>%
+  summarize(PROMEDIO_M= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+
+GENERO_TIPOCON <- cbind(GENERO_TIPOCON, GENERO_TIPOCON_H$PROMEDIO_H, GENERO_TIPOCON_M$PROMEDIO_M)
+
+names(GENERO_TIPOCON) <- list("TIPOCON","PROMEDIO_TOT","PROMEDIO_H","PROMEDIO_M")
+
+
+GENERO_TIPOCON$PORCENTAJE <- (GENERO_TIPOCON$PROMEDIO_M/GENERO_TIPOCON$PROMEDIO_H)*100
+GENERO_TIPOCON$DIFERENCIA <- ((GENERO_TIPOCON$PROMEDIO_H-GENERO_TIPOCON$PROMEDIO_M)/GENERO_TIPOCON$PROMEDIO_H)*100
+
+GENERO_TIPOCON %>%
+  arrange(desc(DIFERENCIA), TIPOCON)  #%>%
+
+```
+
+Se observa mayor diferencia cuando hablamos de jornadas a tiempo completo mientras que si analizamos por tipo de contrato, existe mayor diferencia en el caso de duración indefinida.
+
+Analizamos el nivel de estudios:
+
+```{r, echo=FALSE}
+###SALARIO MEDIO POR NIVEL DE ESTUDIOS
+GENERO_ESTUDIOS <- EES_2014 %>%
+  select(ESTU,SEXO, SALANUAL, FACTOTAL) %>%
+  group_by(ESTU) %>%
+  summarize(PROMEDIOTOT= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_ESTUDIOS_H <- EES_2014 %>%
+  select(ESTU,SEXO, FACTOTAL, SALANUAL) %>%
+  filter(SEXO=="HOMBRE") %>%
+  group_by(ESTU) %>%
+  summarize(PROMEDIO_H= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_ESTUDIOS_M <- EES_2014 %>%
+  select(ESTU,SEXO, FACTOTAL, CNACE, SALANUAL) %>%
+  filter(SEXO=="MUJER") %>%
+  group_by(ESTU) %>%
+  summarize(PROMEDIO_M= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+
+GENERO_ESTUDIOS <- cbind(GENERO_ESTUDIOS, GENERO_ESTUDIOS_H$PROMEDIO_H, GENERO_ESTUDIOS_M$PROMEDIO_M)
+
+names(GENERO_ESTUDIOS) <- list("ESTU","PROMEDIO_TOT","PROMEDIO_H","PROMEDIO_M")
+
+
+GENERO_ESTUDIOS$PORCENTAJE <- (GENERO_ESTUDIOS$PROMEDIO_M/GENERO_ESTUDIOS$PROMEDIO_H)*100
+GENERO_ESTUDIOS$DIFERENCIA <- ((GENERO_ESTUDIOS$PROMEDIO_H-GENERO_ESTUDIOS$PROMEDIO_M)/GENERO_ESTUDIOS$PROMEDIO_H)*100
+
+GENERO_ESTUDIOS %>%
+  arrange(desc(DIFERENCIA), ESTU)  #%>%
+
+```
+
+La mayor diferencia de salario medio se encuentra en educación primaria, mientras que los diplomados y similares son los que presentan menor diferencia.
+
+Analizando esta diferencia por rango de edad, nos encontramos con que 
+```{r, echo=FALSE}
+###SALARIO MEDIO POR EDAD
+GENERO_EDAD <- EES_2014 %>%
+  select(ANOS2,SEXO, SALANUAL, FACTOTAL) %>%
+  group_by(ANOS2) %>%
+  summarize(PROMEDIOTOT= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_EDAD_H <- EES_2014 %>%
+  select(ANOS2,SEXO, FACTOTAL, SALANUAL) %>%
+  filter(SEXO=="HOMBRE") %>%
+  group_by(ANOS2) %>%
+  summarize(PROMEDIO_H= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_EDAD_M <- EES_2014 %>%
+  select(ANOS2,SEXO, FACTOTAL, CNACE, SALANUAL) %>%
+  filter(SEXO=="MUJER") %>%
+  group_by(ANOS2) %>%
+  summarize(PROMEDIO_M= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+
+GENERO_EDAD <- cbind(GENERO_EDAD, GENERO_EDAD_H$PROMEDIO_H, GENERO_EDAD_M$PROMEDIO_M)
+
+names(GENERO_EDAD) <- list("EDAD","PROMEDIO_TOT","PROMEDIO_H","PROMEDIO_M")
+
+
+GENERO_EDAD$PORCENTAJE <- (GENERO_EDAD$PROMEDIO_M/GENERO_EDAD$PROMEDIO_H)*100
+GENERO_EDAD$DIFERENCIA <- ((GENERO_EDAD$PROMEDIO_H-GENERO_EDAD$PROMEDIO_M)/GENERO_EDAD$PROMEDIO_H)*100
+
+GENERO_EDAD %>%
+  arrange(desc(DIFERENCIA), EDAD)  #%>%
+
+```
+
+La mayor diferencia entre géneros se encuentra en el rango menor de 19 años, seguido por aquellos que tienen entre 50 y 59 años. Sin embargo el rango de edad que presenta menor diferencia en el salario medio es de 20 a 29 años.
+
+El siguiente gráfico muestra la distribución por años de antigüedad y el salario medio tanto de hombres como de mujeres:
+```{r, echo=FALSE}
+EES_2014 %>%
+  select(ANOANTI,SEXO, SALANUAL, FACTOTAL) %>%
+  filter(ANOANTI>=0 & ANOANTI<=30) %>%
+  group_by(ANOANTI, SEXO) %>%
+  summarize(PROMEDIO= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL))) %>%
+  ggplot(aes(x=ANOANTI, y=PROMEDIO, colour=SEXO)) + geom_line()
+
+```
+
+Analizamos las posibles diferencias según el tamaño del centro de trabajo de los asalariados.
+```{r, echo=FALSE}
+###SALARIO MEDIO POR TAMAÑO CENTRO TRABAJO
+GENERO_ESTRATO <- EES_2014 %>%
+  select(ESTRATO2,SEXO, SALANUAL, FACTOTAL) %>%
+  group_by(ESTRATO2) %>%
+  summarize(PROMEDIOTOT= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_ESTRATO_H <- EES_2014 %>%
+  select(ESTRATO2,SEXO, FACTOTAL, SALANUAL) %>%
+  filter(SEXO=="HOMBRE") %>%
+  group_by(ESTRATO2) %>%
+  summarize(PROMEDIO_H= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_ESTRATO_M <- EES_2014 %>%
+  select(ESTRATO2,SEXO, FACTOTAL, CNACE, SALANUAL) %>%
+  filter(SEXO=="MUJER") %>%
+  group_by(ESTRATO2) %>%
+  summarize(PROMEDIO_M= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+
+GENERO_ESTRATO <- cbind(GENERO_ESTRATO, GENERO_ESTRATO_H$PROMEDIO_H, GENERO_ESTRATO_M$PROMEDIO_M)
+
+
+names(GENERO_ESTRATO) <- list("ESTRATO2","PROMEDIO_TOT","PROMEDIO_H","PROMEDIO_M")
+
+
+GENERO_ESTRATO$PORCENTAJE <- (GENERO_ESTRATO$PROMEDIO_M/GENERO_ESTRATO$PROMEDIO_H)*100
+GENERO_ESTRATO$DIFERENCIA <- ((GENERO_ESTRATO$PROMEDIO_H-GENERO_ESTRATO$PROMEDIO_M)/GENERO_ESTRATO$PROMEDIO_H)*100
+
+GENERO_ESTRATO %>%
+  arrange(desc(DIFERENCIA), ESTRATO2)
+```
+
+Los centros de trabajo con más de 200 empleados son los que menor diferencia entre el sueldo medio anual entre géneros presentan.
+
+Si estudiamos estos salarios medios según el convenio colectivo, sectorial de ámbito inferior es el que presenta mayores diferencias.
+```{r, echo=FALSE}
+###SALARIO MEDIO POR CONVENIO COLECTIVO
+GENERO_REGULACION <- EES_2014 %>%
+  select(REGULACION, SEXO, SALANUAL, FACTOTAL) %>%
+  group_by(REGULACION) %>%
+  summarize(PROMEDIOTOT= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_REGULACION_H <- EES_2014 %>%
+  select(REGULACION, SEXO, FACTOTAL, SALANUAL) %>%
+  filter(SEXO=="HOMBRE") %>%
+  group_by(REGULACION) %>%
+  summarize(PROMEDIO_H= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_REGULACION_M <- EES_2014 %>%
+  select(REGULACION, SEXO, FACTOTAL, SALANUAL) %>%
+  filter(SEXO=="MUJER") %>%
+  group_by(REGULACION) %>%
+  summarize(PROMEDIO_M= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+
+GENERO_REGULACION <- cbind(GENERO_REGULACION, GENERO_REGULACION_H$PROMEDIO_H, GENERO_REGULACION_M$PROMEDIO_M)
+
+
+names(GENERO_REGULACION) <- list("REGULACION","PROMEDIO_TOT","PROMEDIO_H","PROMEDIO_M")
+
+
+GENERO_REGULACION$PORCENTAJE <- (GENERO_REGULACION$PROMEDIO_M/GENERO_REGULACION$PROMEDIO_H)*100
+GENERO_REGULACION$DIFERENCIA <- ((GENERO_REGULACION$PROMEDIO_H-GENERO_REGULACION$PROMEDIO_M)/GENERO_REGULACION$PROMEDIO_H)*100
+
+GENERO_REGULACION %>%
+  arrange(desc(DIFERENCIA), REGULACION)
+```
+Por último, estudiamos los salarios medios por el tipo de mercado de destino de la empresa:
+```{r, echo=FALSE}
+###SALARIO MEDIO POR MERCADO
+GENERO_MERCADO <- EES_2014 %>%
+  select(MERCADO, SEXO, SALANUAL, FACTOTAL) %>%
+  group_by(MERCADO) %>%
+  summarize(PROMEDIOTOT= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_MERCADO_H <- EES_2014 %>%
+  select(MERCADO, SEXO, FACTOTAL, SALANUAL) %>%
+  filter(SEXO=="HOMBRE") %>%
+  group_by(MERCADO) %>%
+  summarize(PROMEDIO_H= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+GENERO_MERCADO_M <- EES_2014 %>%
+  select(MERCADO, SEXO, FACTOTAL, SALANUAL) %>%
+  filter(SEXO=="MUJER") %>%
+  group_by(MERCADO) %>%
+  summarize(PROMEDIO_M= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)))
+
+
+GENERO_MERCADO <- cbind(GENERO_MERCADO, GENERO_MERCADO_H$PROMEDIO_H, GENERO_MERCADO_M$PROMEDIO_M)
+
+names(GENERO_MERCADO) <- list("MERCADO","PROMEDIO_TOT","PROMEDIO_H","PROMEDIO_M")
+
+
+GENERO_MERCADO$PORCENTAJE <- (GENERO_MERCADO$PROMEDIO_M/GENERO_MERCADO$PROMEDIO_H)*100
+GENERO_MERCADO$DIFERENCIA <- ((GENERO_MERCADO$PROMEDIO_H-GENERO_MERCADO$PROMEDIO_M)/GENERO_MERCADO$PROMEDIO_H)*100
+
+GENERO_MERCADO %>%
+  arrange(desc(DIFERENCIA), MERCADO)
+
+```
+
+###CONCLUSIONES
+
+    Según los datos estudiados, aparentemente existe una diferencia significativa entre el salario medio de las mujeres con respecto a los hombres. Diferencia que se ve aumentada en la zona Sur, o en actividades relacionadas con las industrias extractivas o el suministro de energía eléctrica, en ocupaciones como Trabajadores no cualificados en servicios u Ocupaciones militares, en tipo de jornada a tiempo completo, en contratos con duración indefinida, también se ve aumentada esta diferencia entre los trabajadores con menor nivel de estudios y en aquellos con menos de 19 años o más de 50.
+    
+    Pero estas diferencias realmente se producen con semejanza de actividad económica, estudios y condiciones laborales?, es decir, mismo puesto, distinto salario? 
+    
