@@ -127,7 +127,7 @@ EES_2014 %>%
   select(SEXO, SALANUAL, FACTOTAL) %>%
   group_by(SEXO) %>%
   summarize(promedio= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL))) %>%
-  ggplot(aes(x=SEXO, y=promedio, fill=promedio)) + geom_col() 
+  ggplot(aes(x=SEXO, y=promedio, fill=promedio)) + geom_col() + labs(title ="Salario Medio Anual por Sexo", x = "Sexo", y = "Salario Medio")
 
 ```
 
@@ -510,7 +510,7 @@ EES_2014 %>%
   filter(ANOANTI>=0 & ANOANTI<=30) %>%
   group_by(ANOANTI, SEXO) %>%
   summarize(PROMEDIO= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL))) %>%
-  ggplot(aes(x=ANOANTI, y=PROMEDIO, colour=SEXO)) + geom_line()
+  ggplot(aes(x=ANOANTI, y=PROMEDIO, colour=SEXO)) + geom_line()+ labs(title ="Salario Medio Anual por Antigüedad", x = "Antigüedad", y = "Salario Medio")
 
 ```
 

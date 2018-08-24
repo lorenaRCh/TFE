@@ -1,10 +1,12 @@
+##01. Preparación de Datos
 library("readxl")
 
-#Cargo la tabla 
+#Cargamos la tabla origen que hemos descargado del INE 
 load("dat/EES_2014.rds")
 
+##01. Transformación de variables
 
-#Realizo la transformacion de las vbles
+#Se comienza con la transformacion de las vbles para mostrar su valor en forma caracter
 EES_2014$NUTS1<-ifelse(EES_2014$NUTS1==1, "NOROESTE", ifelse(EES_2014$NUTS1==2, "NORESTE", ifelse(EES_2014$NUTS1==3, "COM. MADRID"
                                                                                                   , ifelse(EES_2014$NUTS1==4, "CENTRO", ifelse(EES_2014$NUTS1==5, "ESTE", ifelse(EES_2014$NUTS1==6, "SUR",
                                                                                                                                                                                  ifelse(EES_2014$NUTS1==7, "CANARIAS","")))))))
@@ -57,6 +59,17 @@ EES_2014$ESTU<-ifelse(EES_2014$ESTU==1, "1.Menos que primaria",
                                                          ifelse(EES_2014$ESTU==7, "7.Licenciados y similares, y doctores universitarios","")))))))
 
 
+#Cargo las dos tablas maestras de las variables CNAE y ocupacion
+TCNO<-read_xlsx("dat/TCNO.xlsx")
+TCNACE<-read_xlsx("dat/TCNACE.xlsx")
+
+#Uno los descriptivos a la tabla original
+EES_2014<-merge(EES_2014, TCNO, by="CNO1") 
+EES_2014<-merge(EES_2014, TCNACE, by="CNACE") 
+
+
+##02.Creación de nuevas variables
+
 # DÃ???as aÃ±o
 #Multiplica los meses trabajados por los días del mes más la duración de la relación laboral en el año en días
 EES_2014$DIASRELABA <- EES_2014$DRELABAM * 30.42 + EES_2014$DRELABAD
@@ -69,22 +82,14 @@ EES_2014$DIASANO <- EES_2014$DIASRELABA - EES_2014$DSIESPA2 - EES_2014$DSIESPA4
 # El salario bruto + la valoración en especie * la proporción de días trabajado
 EES_2014$SALANUAL = (365/EES_2014$DIASANO)*(EES_2014$SALBRUTO + EES_2014$VESP)
 
-
-#Cargo las dos tablas maestras de las variables CNAE y ocupacion
-TCNO<-read_xlsx("dat/TCNO.xlsx")
-TCNACE<-read_xlsx("dat/TCNACE.xlsx")
-
-#Uno los descriptivos a la tabla original
-EES_2014<-merge(EES_2014, TCNO, by="CNO1") 
-EES_2014<-merge(EES_2014, TCNACE, by="CNACE") 
-
-head(EES_2014)
-
 #Creamos las variables MESESANTIG Y FIJODISDIAS
 #Calculando la antiguedad en meses
 EES_2014$MESESANTIG <- EES_2014$ANOANTI*12 + EES_2014$MESANTI
 #Calculando el fijo discontinuo en dias
 EES_2014$FIJODISDIAS <- EES_2014$FIJODISM*30.42 + EES_2014$FIJODISD
+
+head(EES_2014)
+
 
 EES_2014_v2 <- EES_2014
 

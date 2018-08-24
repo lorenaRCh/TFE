@@ -1,12 +1,13 @@
-###02 Preparacion datos solo numericos con variables dummys en las variables categoricas 
+##02 Preparacion datos solo numericos con variables dummys en las variables categoricas 
 
 require(dplyr)
 
-#Cargo la tabla 
+#Cargo la tabla que hemos preparado en el paso 01
 load("dat/EES_2014_v2.rds")
 
+##01. Transformación de variables
 
-###1.3. Convert categorical information to a numeric format
+#Convertimos la información categorica a numérica a través de one-hot-encoding
 #Nivel de estudios
 EES_estudios <- model.matrix(~ESTU-1,EES_2014_v2)
 #Rango Edad
@@ -43,10 +44,10 @@ EES_2014_v2$SIESPA2<-ifelse(EES_2014_v2$SIESPA2=="SI",1, ifelse(EES_2014_v2$SIES
 EES_2014_v2$SIESPA3<-ifelse(EES_2014_v2$SIESPA3=="SI",1, ifelse(EES_2014_v2$SIESPA3=="NO",0,""))
 EES_2014_v2$SIESPA4<-ifelse(EES_2014_v2$SIESPA4=="SI",1, ifelse(EES_2014_v2$SIESPA4=="NO",0,""))
 
+##02.Selección de Variables
 
 #Selecciono las variables y quito las que no aportan informacion
 #Tambien quito las variables que están relacionadas con el salario
-#Cambiamos las variables de tipo character a factor
 train.data <- EES_2014_v2 %>%
   select(-c(ORDENCCC, ORDENTRA)) %>%
   select(-c(ANOANTI,MESANTI,FIJODISM,FIJODISD,DRELABM,SIESPM1,DSIESPM1,SIESPM2,DSIESPM2,SALBASE,
