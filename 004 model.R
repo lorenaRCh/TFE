@@ -1,8 +1,8 @@
 ##Modelado
-head(EES_2014)
 # Model 004. Cambiando las vbles categoricas en 0,1 dummys y randomForest con 500 arboles 
 
 
+#01. Cargar las librerías necesarias
 require(data.table)
 require(randomForest)
 require(xgboost) # for xgboost
@@ -12,8 +12,10 @@ require(data.table)
 require(ModelMetrics)
 
 
+#02. Fijar la semilla
 set.seed(1234)
 
+#03. Creación de una función con el modelo y sus hiperparámetros
 trainRFModel <- function(train.data, train.target, ntrees) {
   rf.model <- randomForest(train.data, y = train.target, 
                            ntree = ntrees,
@@ -22,18 +24,17 @@ trainRFModel <- function(train.data, train.target, ntrees) {
   return(rf.model)
 }
 
-#Cargo el conjunto de datos
+#04. Cargar el conjunto de datos original
 load("dat/data.rds")
 
-#Selecciono solo los hombres
+#05. Selecciono solo los hombres
 data.h <- data %>%
   filter(SEXOHOMBRE == 1) %>%
   select(-c(SEXOMUJER,SEXOHOMBRE)) 
 
 dim(data.h)
 
-#Selecciono conjunto de train y test
-
+#06. Seleccionar el conjunto de train y test
 numberOfSamples<- round(nrow(data.h) * .7)
 train.data.h <- data.h[1:numberOfSamples,]
 test.data.h<-data.h[-(1:numberOfSamples),]
@@ -43,42 +44,75 @@ dim(test.data.h)
 train.data <- as.data.table(train.data.h)
 test.data <- as.data.table(test.data.h)
 
-# Generamos las features
-#train.data <- DataPipeline(train.data)
-#9test.data  <- DataPipeline(test.data)
-
+#07. Dividimos entre data y target
 train.target <- train.data[["SALANUAL"]]
 train.data[, SALANUAL := NULL]
 
 
-# Entrenamos un modelo 
+#08. Entrenamos el modelo 
 rf.model.004 <- trainRFModel(train.data, train.target, 500)  
 
-load("models/rf.model.004")
+#load("models/rf.model.004")
 
-png("models/Importance.004.png")
-varImpPlot(rf.model.004)
-dev.off()
+#09. Graficamos la evolución del error
+mse <- data.frame(mse = rf.model.004$mse,
+                  arboles = seq_along(rf.model.004$mse))
 
 png("models/Error.004.png")
-plot(rf.model.004)
+ggplot(data = mse, aes(x = arboles, y = mse )) +
+  geom_line() +
+  labs(title = "Evolución del error vs número árboles",
+       x = "nº árboles") +
+  theme_bw()
 dev.off()
 
+#10. Calcular la importancia de las variables
+importancia_pred <- as.data.frame(importance(rf.model.004, scale = TRUE))
+importancia_pred <- rownames_to_column(importancia_pred, var = "variable")
+p1 <- ggplot(data = importancia_pred, aes(x = reorder(variable, `%IncMSE`),
+                                          y = `%IncMSE`,
+                                          fill = `%IncMSE`)) +
+  labs(x = "variable", title = "Reducción de MSE") +
+  geom_col() +
+  coord_flip() +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+p2 <- ggplot(data = importancia_pred, aes(x = reorder(variable, IncNodePurity),
+                                          y = IncNodePurity,
+                                          fill = IncNodePurity)) +
+  labs(x = "variable", title = "Reducción de pureza") +
+  geom_col() +
+  coord_flip() +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+png("models/Importance.004.png")
+ggarrange(p1, p2)
+dev.off()
+
+#11. Guardar el modelo
 save(rf.model.004, file = "models/rf.model.004")
 
-# Predecimos
+#12. Predecimos con los datos de test
 dim(test.data)
 head(test.data)
 head(test.data[,13])
 pred.rf.004 <- predict(rf.model.004, test.data[,-13], type = "response")
-?predict.randomForest
 
+
+#13. Calculamos los errores de estimación
+#Raiz del error cuadrático medio de los logaritmos
 rmse(log(test.data$SALANUAL),log(pred.rf.004))
-# 0.4375297
+# 0.4288659
+#Raíz del error cuadrático medio
 rmse(test.data$SALANUAL, pred.rf.004)
-# 0.3364223
+# 24807.47
+#Error cuadrático medio
 mse(test.data$SALANUAL, pred.rf.004)
-# 622366496
+# 615410452
+#Error medio absoluto
 mae(test.data$SALANUAL, pred.rf.004)
-# 9893.326
+# 9741.91
 
+rf.model.004
