@@ -64,8 +64,17 @@ gbm.model.005 <- trainGBMModel(train.data, train.target, 1000, 5)
 #load("models/gbm.model.005")
 
 #10. Graficamos la importancia de las variables 
+importancia_pred <- as.data.frame(summary(gbm.model.005))
+importancia_pred <- rownames_to_column(importancia_pred, var = "variable")
 png("models/Importance.005.png")
-summary(gbm.model.005)
+ggplot(data = importancia_pred, aes(x = reorder(variable, rel.inf),
+                                    y = rel.inf,
+                                    fill = rel.inf)) +
+  labs(x = "variable", title = "Importancia") +
+  geom_col() +
+  coord_flip() +
+  theme_bw() +
+  theme(legend.position = "bottom")
 dev.off()
 
 #11. Guardar el modelo
@@ -84,10 +93,10 @@ test.error<-with(test.data,apply( (predmatrix-SALANUAL)^2,2,mean))
 head(test.error) #contains the Mean squared test error for each of the 100 trees averaged
 
 #Plotting the test error vs number of trees
-plot(n.trees , test.error , pch=19,col="blue",xlab="Number of Trees",ylab="Test Error", main = "Perfomance of Boosting on Test Set")
+plot(n.trees , test.error , pch=19,col="blue",xlab="Nº árboles",ylab="Test Error", main = "Evolución del error vs Número de árboles")
 
 png("models/Error.005.png")
-plot(n.trees , test.error , pch=19,col="blue",xlab="Number of Trees",ylab="Test Error", main = "Perfomance of Boosting on Test Set")
+plot(n.trees , test.error , pch=19,col="blue",xlab="Nº árboles",ylab="Test Error", main = "Evolución del error vs Número de árboles")
 dev.off()
 
 #13. Predecimos con los datos de test

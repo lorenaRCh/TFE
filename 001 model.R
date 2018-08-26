@@ -77,6 +77,7 @@ dev.off()
 
 #11. Calcular la importancia de las variables
 importancia_pred <- as.data.frame(importance(rf.model.001, scale = TRUE))
+head(importancia_pred)
 importancia_pred <- rownames_to_column(importancia_pred, var = "variable")
 p1 <- ggplot(data = importancia_pred, aes(x = reorder(variable, `%IncMSE`),
                                           y = `%IncMSE`,

@@ -69,18 +69,26 @@ dev.off()
 #10. Calcular la importancia de las variables
 importancia_pred <- as.data.frame(importance(rf.model.004, scale = TRUE))
 importancia_pred <- rownames_to_column(importancia_pred, var = "variable")
-p1 <- ggplot(data = importancia_pred, aes(x = reorder(variable, `%IncMSE`),
-                                          y = `%IncMSE`,
-                                          fill = `%IncMSE`)) +
+importancia_pred <-importancia_pred %>%
+  arrange(desc(importancia_pred$`%IncMSE`))
+importancia_pred1 <- head(importancia_pred,10)
+importancia_pred <-importancia_pred %>%
+  arrange(desc(importancia_pred$IncNodePurity))
+
+importancia_pred2 <- head(importancia_pred,10)
+
+p1 <- ggplot(data = importancia_pred1, aes(x = reorder(variable, `%IncMSE`),
+                                           y = `%IncMSE`,
+                                           fill = `%IncMSE`)) +
   labs(x = "variable", title = "Reducción de MSE") +
   geom_col() +
   coord_flip() +
   theme_bw() +
   theme(legend.position = "bottom")
 
-p2 <- ggplot(data = importancia_pred, aes(x = reorder(variable, IncNodePurity),
-                                          y = IncNodePurity,
-                                          fill = IncNodePurity)) +
+p2 <- ggplot(data = importancia_pred2, aes(x = reorder(variable, IncNodePurity),
+                                           y = IncNodePurity,
+                                           fill = IncNodePurity)) +
   labs(x = "variable", title = "Reducción de pureza") +
   geom_col() +
   coord_flip() +
