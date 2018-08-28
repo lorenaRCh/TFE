@@ -1,5 +1,6 @@
 ##Modelado
-# Model 012. Cambiando las vbles categoricas en 0,1 dummys y xgboost con gbtree 500 y mejores parametros
+# Model 013. Cambiando las vbles categoricas en 0,1 dummys y xgboost con gbtree 500 y mejores parametros
+# con el logaritmo de la vble objetivo
 
 #01. Cargar las librerías necesarias
 #require(data.table)
@@ -67,13 +68,14 @@ test.data.h<-data.h[-(1:numberOfSamples),]
 
 
 #08. Dividimos entre data y target y transformamos a matrix
-train.target <- train.data.h[["SALANUAL"]]
+# y convertimos la variable objetivo en logaritmo
+train.target <- log(train.data.h[["SALANUAL"]])
 train.data <-train.data.h %>%
   select(-SALANUAL)
 train.matrix <- data.matrix(train.data)
 
 # Seleccionamos en test Target y data y pasamos a matrix
-test.target <- test.data.h[["SALANUAL"]]
+test.target <- log(test.data.h[["SALANUAL"]])
 test.data <-test.data.h %>%
   select(-SALANUAL)
 test.matrix <- data.matrix(test.data)
@@ -85,16 +87,18 @@ dtest <- xgb.DMatrix(data = test.matrix, label= test.target)
 #10. Calculamos los mejores hiperparametros
 param500 <- ParametrosXGBoost(20, 500, 4)
 
+
 #11. Entrenamos el modelo 
-xgb.model.012 <- trainXGBoostModel(dtrain, 500, param500)  
+xgb.model.013 <- trainXGBoostModel(dtrain, 500, param500)  
 
-#load("models/xgb.model.012")
+xgb.model.013
+#load("models/xgb.model.013")
 
-mat <- xgb.importance (feature_names = colnames(dtrain),model = xgb.model.012)
+mat <- xgb.importance (feature_names = colnames(dtrain),model = xgb.model.013)
 
 #12. Graficamos la importancia de las variables
 importance_matrix = mat[1:20]
-png("models/Importance.012.png")
+png("models/Importance.013.png")
 ggplot(data = importance_matrix, aes(x = reorder(Feature, Gain),
                                      y = Gain,
                                      fill = Gain)) +
@@ -105,24 +109,42 @@ ggplot(data = importance_matrix, aes(x = reorder(Feature, Gain),
 dev.off()
 
 #13. Guardar el modelo
-save(xgb.model.012, file = "models/xgb.model.012")
+save(xgb.model.013, file = "models/xgb.model.013")
 
 #14. Predecimos con los datos de test
-pred.xgb.012 <- predict(xgb.model.012, dtest)
-#head(pred.xgb.012)
+pred.xgb.013 <- predict(xgb.model.013, dtest)
+#head(pred.xgb.013)
+pred.xgb.013 <- exp(pred.xgb.013)
 
 #15. Calculamos los errores de estimación
 #Raiz del error cuadrático medio de los logaritmos
-rmse(log(test.data.h$SALANUAL),log(pred.xgb.012))
-# 
+rmse(log(test.data.h$SALANUAL),log(pred.xgb.013))
+# 0.3858326
 #Raíz del error cuadrático medio
-rmse(test.data.h$SALANUAL, pred.xgb.012)
-# 24601.71
+rmse(test.data.h$SALANUAL, pred.xgb.013)
+# 24465.1
 #Error cuadrático medio
-mse(test.data.h$SALANUAL, pred.xgb.012)
-# 605244197
+mse(test.data.h$SALANUAL, pred.xgb.013)
+# 598541017
 #Error medio absoluto
-mae(test.data.h$SALANUAL, pred.xgb.012)
-# 9495.669
+mae(test.data.h$SALANUAL, pred.xgb.013)
+# 8763.387
 
 
+
+#$`objective`
+#[1] "reg:linear"
+#$eval_metric
+#[1] "rmse"
+#$booster
+#[1] "gbtree"
+#$max_depth
+#[1] 6
+#$eta
+#[1] 0.2019541
+#$gamma
+#[1] 0.01430493
+#$subsample
+#[1] 0.8933691
+#$colsample_bytree
+#[1] 0.7517879
