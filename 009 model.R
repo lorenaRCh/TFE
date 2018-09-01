@@ -21,8 +21,13 @@ trainXGBoostModelL <- function(dmatrix, nrounds) {
 }
 
 
-#04. Cargar el conjunto de datos original
+#04. Cargar el conjunto de datos original y seleccionar los trabajadores a tiempo completo
 load("dat/data.rds")
+
+#Selecciono solo los trabajadores a tiempo completo
+data <- data %>%
+  filter(`TIPOJORTIEMPO COMPLETO` == 1) %>%
+  select(-c(`TIPOJORTIEMPO COMPLETO`,`TIPOJORTIEMPO PARCIAL`)) 
 
 #05. Selecciono solo los hombres
 data.h <- data %>%
@@ -85,12 +90,12 @@ rmse(log(test.data.h$SALANUAL),log(pred.xgb.009))
 # NANs produced
 #Raíz del error cuadrático medio
 rmse(test.data.h$SALANUAL, pred.xgb.009)
-# 25397.72
+# 27307.7
 #Error cuadrático medio
 mse(test.data.h$SALANUAL, pred.xgb.009)
-# 645044168
+# 745710310
 #Error medio absoluto
 mae(test.data.h$SALANUAL, pred.xgb.009)
-# 10395.91
+# 11606.82
 
 

@@ -11,92 +11,70 @@ require(ModelMetrics)
 #02. Fijar la semilla
 set.seed(1234)
 
-#03. Creación de una función para encontrar los mejores hiperparámetros
-ParametrosXGBoost<- function(n, cv.nround, cv.nfold) {
-  All_rmse<- c()
-  Param_group<-c()
-  for (iter in 1:n) {
-    param <- list(objective = "reg:linear",
-                  eval_metric = "rmse",
-                  booster = "gbtree",
-                  max_depth = sample(6:10, 1),
-                  eta = runif(1, 0.01, 0.3),
-                  gamma = runif(1, 0.0, 0.2), 
-                  subsample = runif(1, 0.6, 0.9),
-                  colsample_bytree = runif(1, 0.5, 0.8)
-                  
-    )
-    #cv.nround = 100
-    #cv.nfold = 4
-    mdcv <- xgb.cv(data=dtrain, params = param, nthread=6, 
-                   nfold=cv.nfold, 
-                   nrounds=cv.nround,
-                   verbose = TRUE)
-    # Least Mean_Test_RMSE as Indicator # 
-    # Least Mean_Test_RMSE as Indicator # 
-    min_rmse<- min(mdcv$evaluation_log$test_rmse_mean)
-    All_rmse<-append(All_rmse,min_rmse)
-    Param_group<-append(Param_group,param)
-    # Select Param
-    param<-Param_group[(which.min(All_rmse)*8+1):(which.min(All_rmse)*8+8)]
-  }
-  return(param)
-}
-
-#04. Creación de una función con el modelo y sus hiperparámetros
-trainXGBoostModel<- function(dmatrix, nrounds, param) {
-  xgb.model <- xgboost(params=param,
+#03. Creación de una función con el modelo y sus hiperparámetros
+trainXGBoostModel<- function(dmatrix, nrounds) {
+  xgb.model <- xgboost(objective = "reg:linear", 
+                       eval_metric = "rmse", 
+                       booster = "gbtree", 
+                       max_depth =8, 
+                       eta = 0.0701235727220774, 
+                       gamma = 0.0680891748517752, 
+                       subsample = 0.838016262394376, 
+                       colsample_bytree = 0.531581114884466,
                        data = dmatrix, 
                        verbose = TRUE,
                        nrounds = nrounds)
   return(xgb.model)
 }
 
-#05. Cargar el conjunto de datos original
+#04. Cargar el conjunto de datos original y seleccionar los trabajadores a tiempo completo
 load("dat/data.rds")
 
-#06. Selecciono solo los hombres
+#Selecciono solo los trabajadores a tiempo completo
+data <- data %>%
+  filter(`TIPOJORTIEMPO COMPLETO` == 1) %>%
+  select(-c(`TIPOJORTIEMPO COMPLETO`,`TIPOJORTIEMPO PARCIAL`)) 
+
+
+#05. Selecciono solo los hombres
 data.h <- data %>%
   filter(SEXOHOMBRE == 1) %>%
   select(-c(SEXOMUJER,SEXOHOMBRE)) 
 
 
-#07. Seleccionar el conjunto de train y test
+#06. Seleccionar el conjunto de train y test
 numberOfSamples<- round(nrow(data.h) * .7)
 train.data.h <- data.h[1:numberOfSamples,]
 test.data.h<-data.h[-(1:numberOfSamples),]
 
 
-#08. Dividimos entre data y target y transformamos a matrix
+#07. Dividimos entre data y target y transformamos a matrix
 # y convertimos la variable objetivo en logaritmo
-train.target <- log(train.data.h[["SALANUAL"]])
+train.target <- log10(train.data.h[["SALANUAL"]])
 train.data <-train.data.h %>%
   select(-SALANUAL)
 train.matrix <- data.matrix(train.data)
 
 # Seleccionamos en test Target y data y pasamos a matrix
-test.target <- log(test.data.h[["SALANUAL"]])
+test.target <- log10(test.data.h[["SALANUAL"]])
 test.data <-test.data.h %>%
   select(-SALANUAL)
 test.matrix <- data.matrix(test.data)
 
-#09. Convertimos a DMatrix
+#08. Convertimos a DMatrix
 dtrain <- xgb.DMatrix(data = train.matrix, label= train.target)
 dtest <- xgb.DMatrix(data = test.matrix, label= test.target)
 
-#10. Calculamos los mejores hiperparametros
-param500 <- ParametrosXGBoost(20, 500, 4)
 
-
-#11. Entrenamos el modelo 
-xgb.model.013 <- trainXGBoostModel(dtrain, 500, param500)  
+#09. Entrenamos el modelo 
+xgb.model.013 <- trainXGBoostModel(dtrain, 500)  
 
 xgb.model.013
 #load("models/xgb.model.013")
 
 mat <- xgb.importance (feature_names = colnames(dtrain),model = xgb.model.013)
 
-#12. Graficamos la importancia de las variables
+#10. Graficamos la importancia de las variables
 importance_matrix = mat[1:20]
 png("models/Importance.013.png")
 ggplot(data = importance_matrix, aes(x = reorder(Feature, Gain),
@@ -108,43 +86,25 @@ ggplot(data = importance_matrix, aes(x = reorder(Feature, Gain),
   theme(legend.position = "bottom")
 dev.off()
 
-#13. Guardar el modelo
+#11. Guardar el modelo
 save(xgb.model.013, file = "models/xgb.model.013")
 
-#14. Predecimos con los datos de test
+#12. Predecimos con los datos de test
 pred.xgb.013 <- predict(xgb.model.013, dtest)
 #head(pred.xgb.013)
-pred.xgb.013 <- exp(pred.xgb.013)
+pred.xgb.013 <- 10^(pred.xgb.013)
 
-#15. Calculamos los errores de estimación
+#13. Calculamos los errores de estimación
 #Raiz del error cuadrático medio de los logaritmos
 rmse(log(test.data.h$SALANUAL),log(pred.xgb.013))
-# 0.3858326
+# 0.3654682
 #Raíz del error cuadrático medio
 rmse(test.data.h$SALANUAL, pred.xgb.013)
-# 24465.1
+# 26334.95
 #Error cuadrático medio
 mse(test.data.h$SALANUAL, pred.xgb.013)
-# 598541017
+# 693529504
 #Error medio absoluto
 mae(test.data.h$SALANUAL, pred.xgb.013)
-# 8763.387
+# 9869.522
 
-
-
-#$`objective`
-#[1] "reg:linear"
-#$eval_metric
-#[1] "rmse"
-#$booster
-#[1] "gbtree"
-#$max_depth
-#[1] 6
-#$eta
-#[1] 0.2019541
-#$gamma
-#[1] 0.01430493
-#$subsample
-#[1] 0.8933691
-#$colsample_bytree
-#[1] 0.7517879

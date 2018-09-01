@@ -30,16 +30,18 @@ load("dat/EES_2014_v2.rds")
 #Tambien quito las variables que están relacionadas con el salario
 #Cambiamos las variables de tipo character a factor
 train.data <- EES_2014_v2 %>%
+  filter(TIPOJOR == "TIEMPO COMPLETO") %>%
   select(-c(ORDENCCC, ORDENTRA)) %>%
   select(-c(ANOANTI,MESANTI,FIJODISM,FIJODISD,DRELABM,SIESPM1,DSIESPM1,SIESPM2,DSIESPM2,SALBASE,
             EXTRAORM,PHEXTRA,COMSAL,COMSALTT,IRPFMES,COTIZA,BASE,DRELABAM,DRELABAD,
-            SALBRUTO,GEXTRA,VESP,FACTOTAL,DIASANO,DES_CNACE,DES_TCNO)) %>%
+            SALBRUTO,GEXTRA,VESP,FACTOTAL,DIASANO,DES_CNACE,DES_TCNO,TIPOJOR)) %>%
   mutate_if(is.character, as.factor)
 
 
 #06. Selecciono solo los hombres
 data.h <- train.data %>%
-  filter(SEXO == "HOMBRE")
+  filter(SEXO == "HOMBRE")%>%
+  select(-c(SEXO))
 
 
 #07. Seleccionar el conjunto de train y test
@@ -101,8 +103,8 @@ dev.off()
 
 #13. Predecimos con los datos de test
 dim(test.data)
-head(test.data[,31])
-pred.gbm.005 <- predict(gbm.model.005, test.data[,-31], n.tree = 1000, type = "response")
+head(test.data[,29])
+pred.gbm.005 <- predict(gbm.model.005, test.data[,-29], n.tree = 1000, type = "response")
 #?predict.gbm
 
 pred.gbm.005 <- as.vector(pred.gbm.005)
@@ -113,10 +115,10 @@ rmse(log(test.data$SALANUAL),log(pred.gbm.005))
 #
 #Raíz del error cuadrático medio
 rmse(test.data$SALANUAL, pred.gbm.005)
-# 24801.3
+# 26861.62
 #Error cuadrático medio
 mse(test.data$SALANUAL, pred.gbm.005)
-# 615104631
+# 721546874
 #Error medio absoluto
 mae(test.data$SALANUAL, pred.gbm.005)
-# 9932.961
+# 11428.09

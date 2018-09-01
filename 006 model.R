@@ -21,8 +21,14 @@ trainGBMModel <- function(train.data, train.target, ntrees, depth) {
   return(gbm.model)
 }
 
-#04. Cargar el conjunto de datos original
+#04. Cargar el conjunto de datos original y seleccionar los trabajadores a tiempo completo
 load("dat/data.rds")
+
+#Selecciono solo los trabajadores a tiempo completo
+data <- data %>%
+  filter(`TIPOJORTIEMPO COMPLETO` == 1) %>%
+  select(-c(`TIPOJORTIEMPO COMPLETO`,`TIPOJORTIEMPO PARCIAL`)) 
+
 
 #05. Selecciono solo los hombres
 data.h <- data %>%
@@ -52,6 +58,7 @@ gbm.model.006 <- trainGBMModel(train.data, train.target, 1000, 5)
 
 #load("models/gbm.model.006")
 
+
 #09. Graficamos la importancia de las variables 
 importancia_pred <- as.data.frame(summary(gbm.model.006))
 importancia_pred <- rownames_to_column(importancia_pred, var = "variable")
@@ -76,6 +83,7 @@ save(gbm.model.006, file = "models/gbm.model.006")
 #11. Graficamos la evolución del error
 n.trees = seq(from=100 ,to=1000, by=100) #no of trees-a vector of 100 values 
 
+head(test.data[,13])
 pred <- predict(gbm.model.006,test.data[,-13],n.trees = 1000, type = "response")
 
 #Generating a Prediction matrix for each Tree
@@ -100,13 +108,13 @@ pred.gbm.006 <- as.vector(pred.gbm.006)
 #13. Calculamos los errores de estimación
 #Raiz del error cuadrático medio de los logaritmos
 rmse(log(test.data$SALANUAL),log(pred.gbm.006))
-# --0.4752587
+# --0.4057941
 #Raíz del error cuadrático medio
 rmse(test.data$SALANUAL, pred.gbm.006)
-# 24775.93
+# 26947.63
 #Error cuadrático medio
 mse(test.data$SALANUAL, pred.gbm.006)
-# 613846917
+# 726174740
 #Error medio absoluto
 mae(test.data$SALANUAL, pred.gbm.006)
-# 9718.995
+# 11159.9

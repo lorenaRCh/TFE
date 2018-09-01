@@ -51,8 +51,14 @@ trainXGBoostModel<- function(dmatrix, nrounds, param) {
   return(xgb.model)
 }
 
-#05. Cargar el conjunto de datos original
+
+#05. Cargar el conjunto de datos original y seleccionar los trabajadores a tiempo completo
 load("dat/data.rds")
+
+#Selecciono solo los trabajadores a tiempo completo
+data <- data %>%
+  filter(`TIPOJORTIEMPO COMPLETO` == 1) %>%
+  select(-c(`TIPOJORTIEMPO COMPLETO`,`TIPOJORTIEMPO PARCIAL`)) 
 
 #06. Selecciono solo los hombres
 data.h <- data %>%
@@ -83,7 +89,7 @@ dtrain <- xgb.DMatrix(data = train.matrix, label= train.target)
 dtest <- xgb.DMatrix(data = test.matrix, label= test.target)
 
 #10. Calculamos los mejores hiperparametros
-param500 <- ParametrosXGBoost(20, 500, 4)
+param500 <- ParametrosXGBoost(20, 500, 5)
 
 #11. Entrenamos el modelo 
 xgb.model.012 <- trainXGBoostModel(dtrain, 500, param500)  
@@ -114,15 +120,32 @@ pred.xgb.012 <- predict(xgb.model.012, dtest)
 #15. Calculamos los errores de estimación
 #Raiz del error cuadrático medio de los logaritmos
 rmse(log(test.data.h$SALANUAL),log(pred.xgb.012))
-# 
+# 0.3913481
 #Raíz del error cuadrático medio
 rmse(test.data.h$SALANUAL, pred.xgb.012)
-# 24601.71
+# 26620.7
 #Error cuadrático medio
 mse(test.data.h$SALANUAL, pred.xgb.012)
-# 605244197
+# 708661535
 #Error medio absoluto
 mae(test.data.h$SALANUAL, pred.xgb.012)
-# 9495.669
+# 10751.28
 
 
+param500
+#$`objective`
+#[1] "reg:linear"
+#$eval_metric
+#[1] "rmse"
+#$booster
+#[1] "gbtree"
+#$max_depth
+#[1] 8
+#$eta
+#[1] 0.07012357
+#$gamma
+#[1] 0.06808917
+#$subsample
+#[1] 0.8380163
+#$colsample_bytree
+#[1] 0.5315811

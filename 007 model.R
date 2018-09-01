@@ -20,8 +20,14 @@ trainLASSOModel <- function(train.data, train.target) {
     return(laa)
 }
 
-#04. Cargar el conjunto de datos original
+#04. Cargar el conjunto de datos original y seleccionar los trabajadores a tiempo completo
 load("dat/data.rds")
+
+#Selecciono solo los trabajadores a tiempo completo
+data <- data %>%
+  filter(`TIPOJORTIEMPO COMPLETO` == 1) %>%
+  select(-c(`TIPOJORTIEMPO COMPLETO`,`TIPOJORTIEMPO PARCIAL`)) 
+
 
 #05. Selecciono solo los hombres
 data.h <- data %>%
@@ -87,16 +93,16 @@ pred.laa.007 <- as.vector(pred.laa.007$fit)
 #16. Calculamos los errores de estimación
 #Raiz del error cuadrático medio de los logaritmos
 rmse(log(test.data$SALANUAL),log(pred.laa.007))
-# 
+# 0.4386815
 #Raíz del error cuadrático medio
 rmse(test.data$SALANUAL, pred.laa.007)
-# 25545.51
+# 27524.47
 #Error cuadrático medio
 mse(test.data$SALANUAL, pred.laa.007)
-# 652572852
+# 757596489
 #Error medio absoluto
 mae(test.data$SALANUAL, pred.laa.007)
-# 11007.96
+# 12147.88
 
 
 #17. Calculamos los errores de estimación
@@ -105,10 +111,10 @@ rmse(log(test.data$SALANUAL),log(pred.lr.007))
 # 
 #Raíz del error cuadrático medio
 rmse(test.data$SALANUAL, pred.lr.007)
-# 25788.86
+# 27474.62
 #Error cuadrático medio
 mse(test.data$SALANUAL, pred.lr.007)
-# 665065482
+# 754854624
 #Error medio absoluto
 mae(test.data$SALANUAL, pred.lr.007)
-# 11743.01
+# 11994.81

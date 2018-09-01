@@ -8,6 +8,7 @@ require(dplyr)
 require(ModelMetrics)
 require(tidyverse)
 require(ggpubr)
+require(ranger)
 
 
 #02. Fijar la semilla
@@ -22,6 +23,12 @@ trainRFModel <- function(train.data, train.target, ntrees) {
   return(rf.model)
 }
 
+trainRangerModel <- function(train.data, ntrees) {
+  rf.ranger <- ranger(SALANUAL ~ ., data = train.data, num.trees = ntrees, 
+                      write.forest = TRUE, importance="permutation")
+  return(rf.ranger)
+}
+
 #04. Cargar el conjunto de datos original
 load("dat/EES_2014_v2.rds")
 
@@ -30,17 +37,19 @@ load("dat/EES_2014_v2.rds")
 #Tambien quito las variables que están relacionadas con el salario
 #Cambiamos las variables de tipo character a factor
 train.data <- EES_2014_v2 %>%
+  filter(TIPOJOR == "TIEMPO COMPLETO") %>%
   select(-c(ORDENCCC, ORDENTRA)) %>%
   select(-c(ANOANTI,MESANTI,FIJODISM,FIJODISD,DRELABM,SIESPM1,DSIESPM1,SIESPM2,DSIESPM2,SALBASE,
             EXTRAORM,PHEXTRA,COMSAL,COMSALTT,IRPFMES,COTIZA,BASE,DRELABAM,DRELABAD,
-            SALBRUTO,GEXTRA,VESP,FACTOTAL,DIASANO,DES_CNACE,DES_TCNO)) %>%
+            SALBRUTO,GEXTRA,VESP,FACTOTAL,DIASANO,DES_CNACE,DES_TCNO,TIPOJOR)) %>%
   mutate_if(is.character, as.factor)
 
 head(train.data)
 
 #06. Segmentación del dataset en solo los hombres
 data.h <- train.data %>%
-  filter(SEXO == "HOMBRE")
+  filter(SEXO == "HOMBRE") %>%
+  select(-c(SEXO))
 
 dim(data.h)
 
@@ -54,72 +63,46 @@ dim(test.data.h)
 train.data <- as.data.table(train.data.h)
 test.data <- as.data.table(test.data.h)
 
-#08. Dividimos entre data y target
-train.target <- train.data[["SALANUAL"]]
-train.data[, SALANUAL := NULL]
-head(test.data)
 
-#09. Entrenamos el modelo 
-rf.model.003 <- trainRFModel(train.data, train.target, 500)  
-
+#08. Entrenamos el modelo 
+rf.model.003 <- trainRangerModel(train.data, 500)
 #load("models/rf.model.003")
 
-#10. Graficamos la evolución del error
-mse <- data.frame(mse = rf.model.003$mse,
-                  arboles = seq_along(rf.model.003$mse))
 
-png("models/Error.003.png")
-ggplot(data = mse, aes(x = arboles, y = mse )) +
-  geom_line() +
-  labs(title = "Evolución del error vs número árboles",
-       x = "nº árboles") +
-  theme_bw()
-dev.off()
 
-#11. Calcular la importancia de las variables
+#09. Calcular la importancia de las variables
 importancia_pred <- as.data.frame(importance(rf.model.003, scale = TRUE))
-importancia_pred <- rownames_to_column(importancia_pred, var = "variable")
-p1 <- ggplot(data = importancia_pred, aes(x = reorder(variable, `%IncMSE`),
-                                          y = `%IncMSE`,
-                                          fill = `%IncMSE`)) +
-  labs(x = "variable", title = "Reducción de MSE") +
-  geom_col() +
-  coord_flip() +
-  theme_bw() +
-  theme(legend.position = "bottom")
-
-p2 <- ggplot(data = importancia_pred, aes(x = reorder(variable, IncNodePurity),
-                                          y = IncNodePurity,
-                                          fill = IncNodePurity)) +
-  labs(x = "variable", title = "Reducción de pureza") +
-  geom_col() +
-  coord_flip() +
-  theme_bw() +
-  theme(legend.position = "bottom")
+importancia_pred <- rownames_to_column(importancia_pred, var="variable")
+colnames(importancia_pred) <- c("variable", "importance")
 
 png("models/Importance.003.png")
-ggarrange(p1, p2)
+ggplot(data = importancia_pred, aes(x = reorder(variable, importance),
+                                    y = importance,
+                                    fill = importance)) +
+  labs(x = "variable", title = "Importance") +
+  geom_col() +
+  coord_flip() +
+  theme_bw() +
+  theme(legend.position = "bottom")
 dev.off()
 
-#12. Guardar el modelo
+#10. Guardar el modelo
 save(rf.model.003, file = "models/rf.model.003")
 
-#13. Predecimos con los datos de test
-head(test.data[,31])
-pred.rf.003 <- predict(rf.model.003, test.data[,-31], type = "response")
+#11. Predecimos con los datos de test
+head(test.data[,29])
+pred.rf.003 <- predict(rf.model.003, test.data[,-29], type = "response")
 
-#14. Calculamos los errores de estimación
+#12. Calculamos los errores de estimación
 #Raiz del error cuadrático medio de los logaritmos
-rmse(log(test.data$SALANUAL),log(pred.rf.003))
-# 0.5221218
+rmse(log(test.data$SALANUAL),log(pred.rf.003$predictions))
+# 0.4147922
 #Raíz del error cuadrático medio
-rmse(test.data$SALANUAL, pred.rf.003)
-# 25257.75
+rmse(test.data$SALANUAL, pred.rf.003$predictions)
+# 27096.14
 #Error cuadrático medio
-mse(test.data$SALANUAL, pred.rf.003)
-# 637954056
+mse(test.data$SALANUAL, pred.rf.003$predictions)
+# 734200870
 #Error medio absoluto
-mae(test.data$SALANUAL, pred.rf.003)
-# 10571.16
-
-
+mae(test.data$SALANUAL, pred.rf.003$predictions)
+# 11561.37
