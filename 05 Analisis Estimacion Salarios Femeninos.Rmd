@@ -1,0 +1,331 @@
+---
+title: "Análisis estimación Salarios femeninos"
+author: "Lorena Rodriguez Chamorro"
+date: "1 de septiembre de 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+#install.packages("tidyverse")
+#install.packages("knitr")
+#install.packages("dplyr")
+#install.packages("quantreg")
+library("tidyverse")
+library("dplyr")
+library("ggplot2")
+library("readxl")
+library("quantreg")
+```
+
+```{r, include=FALSE}
+#Cargo la tabla del conjunto de datos Femenino
+load("../dat/fem.data.rds")
+#Cargo la tabla del conjunto de datos Masculino
+load("../dat/mas.data.rds")
+```
+
+
+## ANÁLISIS ESTIMACIÓN SALARIOS FEMENINOS
+
+Una vez realizada la estimación de los salarios del dataset formado únicamente por las mujeres, a partir de técnicas de Machine Learning entrenando y testeando los modelos únicamente con el dataset de hombres, conseguimos una estimación del salario a partir de variables dependientes relacionadas con el trabajo realizado como nivel de estudios, actividad, tamaño del centro etc.
+
+Si no existieran diferencias salariales por cuestiones de género a igualdad de condiciones laborales, el salario real y el estimado deberían ser muy similares.
+
+A continuación vamos a analizar las posibles diferencias entre lo estimado y lo real.
+
+Comenzamos calculando el salario medio real para los hombres con tipo de jornada a tiempo completo y lo compararemos con el salario estimado que hemos calculado a través de técnicas de aprendizaje automático.
+
+```{r, echo=FALSE}
+salario.medio.anual.m <-   sum(mas.data$SALANUAL * mas.data$FACTOTAL) / sum(mas.data$FACTOTAL)
+salario.estimado.medio.anual.m <-   sum(mas.data$SALESTIMADO * mas.data$FACTOTAL) / sum(mas.data$FACTOTAL)
+#salario.medio.anual.m
+#salario.estimado.medio.anual.m
+salarios.m <- cbind(salario.medio.anual.m, salario.estimado.medio.anual.m)
+colnames(salarios.m) <- c("Real", "Estimado")
+
+salarios.m
+```
+
+Como podemos observar, el salario medio estimado es muy similar al salario medio real en el caso de los hombres, vamos a analizar estas dos métricas en el caso del dataset femenino.
+
+```{r, echo=FALSE}
+fem.data %>%
+  select(SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+
+```
+
+Podemos observar una diferencia considerable entre el salario Real de las mujeres y el salario Estimado (más de 3000 euros), es decir el modelo entrenado a partir del conjunto de datos masculino sobreestima el salario femenino, por lo que podemos concluir que realmente existen diferencias salariales por cuestión de género.
+
+A continuación, vamos a analizar en qué condiciones existe mayor diferencia entre el salario Real y el Estimado.
+
+Comenzamos analizando las zonas geográficas:
+
+```{r, echo=FALSE}
+#Por zonas
+fem.data.zonas <- fem.data %>%
+  select(NUTS1, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(NUTS1) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+
+fem.data.zonas %>%
+  arrange(desc(DifPorcentual), NUTS1)  
+
+```
+
+La comunidad de Madrid es dónde mayor diferencia existe entre el salario estimado y el real siendo el estimado un 15,8% superior al real, por el contrario Canarias es la zona geográfica con menor diferencia un 5,7% superior.
+
+```{r, echo=FALSE}
+fem.data.zonas %>%
+  ggplot(aes(x=reorder(NUTS1, DifPorcentual), y=DifPorcentual, fill=DifPorcentual)) + geom_col(position="dodge") +
+  labs(title ="% Sobreestimación por Zona Geografica", x = "Zona Geografica", y = "% Sobreestimacion")  +
+  theme_bw()
+
+```
+
+Si analizamos la actividad económica nos encontramos con que otros servicios, actividades asociativas... es la actividad que mayor sobreestimación tiene, casi un 30%, seguida de actividades administrativas y servicios auxiliares.
+Por el contrario, Transporte y almacenamiento y hostelería son las actividades con menor diferencia entre el salario estimado y el real con menos de un 5%.
+
+```{r, echo=FALSE}
+#Por actividad económica
+fem.data.actividad <- fem.data %>%
+  select(DES_CNACE, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(DES_CNACE) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+fem.data.actividad %>%
+  arrange(desc(DifPorcentual), DES_CNACE)  %>%
+  top_n(2, DifPorcentual)
+
+fem.data.actividad %>%
+  arrange(desc(DifPorcentual), DES_CNACE)  %>%
+  top_n(-2, DifPorcentual)
+
+```
+
+El siguiente gráfico muestra la diferencia porcentual del salario real y el estimado por códigos de actividad:
+
+```{r, echo=FALSE}
+fem.data.cdactividad <- fem.data %>%
+  select(CNACE, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(CNACE) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)), DifPorcentual=((Estimado-Real)/Real)*100)
+
+
+fem.data.cdactividad %>%
+  ggplot(aes(x=reorder(CNACE, DifPorcentual), y=DifPorcentual, fill=DifPorcentual)) + geom_col(position="dodge") +
+  labs(title ="% Sobreestimación por Actividad", x = "Codigo Actividad", y = "% Sobreestimacion") +
+  theme_bw()
+```
+
+A continuación analizamos las diferencias por ocupación.
+
+```{r, echo=FALSE}
+#Por ocupación
+fem.data.ocupacion <- fem.data %>%
+  select(DES_TCNO, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(DES_TCNO) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+fem.data.ocupacion %>%
+  arrange(desc(DifPorcentual), DES_TCNO)  %>%
+  top_n(2, DifPorcentual)
+
+fem.data.ocupacion %>%
+  arrange(desc(DifPorcentual), DES_TCNO)  %>%
+  top_n(-2, DifPorcentual)
+
+```
+
+Ocupaciones militares es la que mayor diferencia presenta entre el salario estimado y el real, siendo el estimado más de 100% superior al real, le sigue los trabajadores de los servicios de salud y el cuidad de las personas con una sobreestimación de más del 30%.
+
+Por el contrario, técnicos y profesionales científicos e intelectuales y trabajadores de los servicios de protección y seguridad son los que presentan un valor estimado más acorde con el real.
+
+```{r, echo=FALSE}
+fem.data.cdocupacion <- fem.data %>%
+  select(CNO1, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(CNO1) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)), DifPorcentual=((Estimado-Real)/Real)*100)
+
+fem.data.cdocupacion %>%
+  ggplot(aes(x=reorder(CNO1, DifPorcentual), y=DifPorcentual, fill=DifPorcentual)) + geom_col(position="dodge") +
+  labs(title ="% Sobreestimación por Ocupación", x = "Codigo Ocupación", y = "% Sobreestimacion") +
+  theme_bw()
+```
+
+Si analizamos el tipo de contrato, la mayor diferencia entre Estimado y real se presenta en los contratos con duración indefinida.
+
+```{r, echo=FALSE}
+#Por tipo de contrato
+fem.data.tipocon <- fem.data %>%
+  select(TIPOCON, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(TIPOCON) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+
+fem.data.tipocon %>%
+  arrange(desc(DifPorcentual), TIPOCON)  
+
+fem.data.tipocon %>%
+  ggplot(aes(x=reorder(TIPOCON, DifPorcentual), y=DifPorcentual, fill=DifPorcentual)) + geom_col(position="dodge") +
+  labs(title ="% Sobreestimación por Tipo contrato", x = "Tipo contrato", y = "% Sobreestimacion") +
+  theme_bw()
+
+```
+
+Si analizamos el nivel de estudios, nos encontramos que dónde mayor diferencia salarial existe es en las enseñanzas de formación profesional de grado superior con casi un 18%, seguida de segunda etapa de educacicón secundaria. Los licenciados y similares son los que menor diferencia salarial entre género presentan.
+
+```{r, echo=FALSE}
+#Por Nivel de estudios
+fem.data.estudios <- fem.data %>%
+  select(ESTU, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(ESTU) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+
+fem.data.estudios %>%
+  arrange(desc(DifPorcentual), ESTU)  
+
+fem.data.estudios$ESTU <- ifelse(fem.data.estudios$ESTU=="1.Menos que primaria", "1. Menos primaria",
+                          ifelse(fem.data.estudios$ESTU=="2.Educacion primaria", "2. Educacion primaria",
+                          ifelse(fem.data.estudios$ESTU=="3.Primera etapa de educacion secundaria", "3. 1ª Etapa Secundaria",
+                          ifelse(fem.data.estudios$ESTU=="4.Segunda etapa de educacion secundaria", "4. 2ª Etapa Secundaria",
+                          ifelse(fem.data.estudios$ESTU=="5.Enseñanzas de formación profesional de grado superior y similares", "5. Formacion Profesional",
+                          ifelse(fem.data.estudios$ESTU=="6.Diplomados universitarios y similares", "6. Diplomados",
+                          ifelse(fem.data.estudios$ESTU=="7.Licenciados y similares, y doctores universitarios", "7. Licenciados","")))))))
+
+
+fem.data.estudios %>%
+  ggplot(aes(x=reorder(ESTU, DifPorcentual), y=DifPorcentual, fill=DifPorcentual)) + geom_col(position="dodge") +
+  labs(title ="% Sobreestimación por Nivel de Estudios", x = "Nivel de Estudios", y = "% Sobreestimacion") +
+  theme_bw()
+
+```
+
+Al analizar la edad, nos encontramos que las diferencias salariales van aumentando a medida que aumenta la edad, llegando a superar el 19% de sobreestimación en las mujeres con más de 59 años.
+
+```{r, echo=FALSE}
+#Por Edad
+fem.data.edad <- fem.data %>%
+  select(ANOS2, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(ANOS2) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+
+fem.data.edad %>%
+  arrange(desc(DifPorcentual), ANOS2)  
+
+fem.data.edad %>%
+  ggplot(aes(x=reorder(ANOS2, DifPorcentual), y=DifPorcentual, fill=DifPorcentual)) + geom_col(position="dodge") +
+  labs(title ="% Sobreestimación por Edad", x = "Rango Edad", y = "% Sobreestimacion") +
+  theme_bw()
+
+```
+
+En el siguiente gráfico observamos la diferencia salarial entre Estimado y Real por los años de antiguedad en la empresa, dónde parece observarse que en antiguedad de pocos años es dónde menor diferencia existe.
+
+```{r, echo=FALSE}
+#Por Antiguedad
+fem.data.antiguedad <- fem.data %>%
+  select(ANOANTI, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(ANOANTI) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+fem.data.antiguedad %>%
+  gather(Salario, media, -ANOANTI, -diferencia, -DifPorcentual) %>%
+  ggplot(aes(ANOANTI, media, colour=Salario)) + geom_line()  +
+  labs(title ="Salario Real vs Estimado por Antiguedad", x = "Años antiguedad", y = "Salario Medio") +
+  theme_bw()
+
+```
+
+Si estudiamos el tamaño del centro, podemos obsservar que con más de 59 trabajadores existe una sobre estimación de más de 14,5%, mientras que en las empresas con menos de 50 trabajadores se sitúa en 10,6%.
+
+```{r, echo=FALSE}
+#Por Tamaño centro
+fem.data.estrato <- fem.data %>%
+  select(ESTRATO2, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(ESTRATO2) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+
+fem.data.estrato %>%
+  arrange(desc(DifPorcentual), ESTRATO2)  
+
+fem.data.estrato %>%
+  ggplot(aes(x=reorder(ESTRATO2, DifPorcentual), y=DifPorcentual, fill=DifPorcentual)) + geom_col(position="dodge") +
+  labs(title ="% Sobreestimación por Tamaño del Centro", x = "Tamaño Centro", y = "% Sobreestimacion") +
+  theme_bw()
+
+
+```
+
+Si estudiamos el salario por el tipo de convenio colectivo, tenemos que de centro de trabajo presenta una sobreestimación de más de un 16% siendo el tipo de convenio con mayor direrencia entre el salario estimado y el real, por el contrario, sectorial de ámbito inferior con un 11,4% de sobreestimación es el tipo de convenio con menor diferencia.
+
+```{r, echo=FALSE}
+#Por Regulacion
+fem.data.regulacion <- fem.data %>%
+  select(REGULACION, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(REGULACION) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+
+fem.data.regulacion %>%
+  arrange(desc(DifPorcentual), REGULACION)  
+
+fem.data.regulacion %>%
+  ggplot(aes(x=reorder(REGULACION, DifPorcentual), y=DifPorcentual, fill=DifPorcentual)) + geom_col(position="dodge") +
+  labs(title ="% Sobreestimación por Regulacion", x = "Regulacion", y = "% Sobreestimacion") +
+  theme_bw()
+
+```
+
+Por último, analizamos el tipo de mercado de destino de la empresa, dónde nos encontramos que si el destino es Union Europea presenta menor sobreestimación que el resto, situándose en un 10,8% mientras que el resto de mercado supera el 13%.
+
+```{r, echo=FALSE}
+#Por Mercado
+fem.data.mercado <- fem.data %>%
+  select(MERCADO, SALANUAL, SALESTIMADO, FACTOTAL) %>%
+  group_by(MERCADO) %>%
+  summarize(Real= (sum(SALANUAL * FACTOTAL) / sum(FACTOTAL)), Estimado= (sum(SALESTIMADO * FACTOTAL) / sum(FACTOTAL)),
+            diferencia = Estimado-Real, DifPorcentual=((Estimado-Real)/Real)*100)
+
+
+fem.data.mercado %>%
+  arrange(desc(DifPorcentual), MERCADO)  
+
+fem.data.mercado %>%
+  ggplot(aes(x=reorder(MERCADO, DifPorcentual), y=DifPorcentual, fill=DifPorcentual)) + geom_col(position="dodge") +
+  labs(title ="% Sobreestimación por Mercado", x = "Mercado", y = "% Sobreestimacion") +
+  theme_bw()
+
+```
+
+
+###CONCLUSIONES
+
+    Según el análisis realizado, se puede determinar que existe una diferencia salarial de género que afecta negativamente a las mujeres.
+    El modelo realizado sobreestima el salario femenino con más de 3.000 euros de diferencia en el salario medio, es decir, se sobreestima en más de un 13%.
+    Esta diferencia salarial se ve incrementada en la Comunidad de Madrid y el Este de España, en actividades relacionadas con otros servicios, actividades asociativas y administrativas. En ocupaciones Militares y trabajadores de los servicios de salud. 
+    Además, en tipo de contratos con duración indefinida y en aquellos asalariados con nivel de estudios formación profesional de grado superior.
+    La edad afecta en la diferencia salarial, dándose mayor diferencia a medida que aumenta la edad de las asalariadas.
+    En empresas con más de 50 empleados existe también mayor direncia salarial y en aquellas empresas con tipo de convenio colectivo de centro de trabajo.
+    
+    Por el contrario, se puede decir que no existe esa diferencia salarial o es bastante inferior en Canarias y el Noreste de España, en actividades de hostelería y transporte y almacenamiento, en técnicos y profesionales científicos y trabajadores de los servicios de salud y cuidado de las personas.
+    Tampoco existe tal diferencia en Licenciados y similares o en los asalariados con menos de 19 años, 
